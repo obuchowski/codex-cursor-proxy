@@ -44,7 +44,10 @@ export async function runCodexViaPi(opts: {
 
   const model = getModel("openai-codex", modelId as never) as Model<"openai-codex-responses"> | undefined;
   if (!model) {
-    return Response.json({ error: `Unknown openai-codex model: ${modelId}` }, { status: 400 });
+    return new Response(`Unknown openai-codex model: ${modelId}`, {
+      status: 400,
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
   }
 
   const piEntries = buildPiTools(projectCwd);

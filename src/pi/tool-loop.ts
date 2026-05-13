@@ -48,6 +48,21 @@ function piStatusLine(name: string, args: unknown, output: string, projectCwd: s
   return `\n\n**${label}** \`${target}\`\n${diff}${errorNote}\n\n`;
 }
 
+function upstreamErrorMessage(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object") {
+    const err = value as { message?: unknown; errorMessage?: unknown };
+    if (typeof err.errorMessage === "string") return err.errorMessage;
+    if (typeof err.message === "string") return err.message;
+  }
+  return "upstream stream error";
+}
+
+async function* prepend<T>(head: IteratorResult<T>, tail: AsyncIterator<T>): AsyncGenerator<T> {
+  if (!head.done) yield head.value;
+  for await (const v of { [Symbol.asyncIterator]: () => tail }) yield v;
+}
+
 function toCodexFunctionCallId(piToolCallId: string): string {
   const raw = piToolCallId.trim();
   if (raw.startsWith("fc")) return raw;
@@ -120,7 +135,7 @@ function emitFinal(
   return chatFinalChunks(chatId, created, outModel, finish, usage).map((line) => encoder.encode(line));
 }
 
-export function runWithToolLoop(opts: {
+export async function runWithToolLoop(opts: {
   body: Record<string, unknown>;
   model: Model<"openai-codex-responses">;
   apiKey: string;
@@ -130,13 +145,20 @@ export function runWithToolLoop(opts: {
   requestId: string;
   projectCwd: string;
   debug: boolean;
-}): Response {
+}): Promise<Response> {
   const { body, model, apiKey, originator, displayModel, piTools, requestId, projectCwd, debug } = opts;
   const logger = createLogger(debug);
 
   const encoder = new TextEncoder();
   const created = Math.floor(Date.now() / 1000);
   let chatId = "chatcmpl-" + crypto.randomUUID();
+  const firstTurnIterator = streamCodexOnce(body, model, apiKey, originator)[Symbol.asyncIterator]();
+  const firstTurn = await firstTurnIterator.next();
+  if (!firstTurn.done && firstTurn.value.type === "error") {
+    const message = upstreamErrorMessage(firstTurn.value.error);
+    logger.error(`[${requestId}] upstream_error_initial status=400 message=${previewJson(message)}`);
+    return new Response(message, { status: 400, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+  }
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -148,11 +170,20 @@ export function runWithToolLoop(opts: {
           sentAssistantRole = true;
         }
       };
+      const closeStreamError = (msg: string) => {
+        logger.error(`[${requestId}] stream_error ${msg}`);
+        ensureRole();
+        controller.enqueue(encoder.encode(chatChunk(chatId, created, displayModel, { content: `\n[error] ${msg}\n` })));
+        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+        controller.close();
+      };
 
       try {
         for (let turn = 0; turn < MAX_TOOL_TURNS; turn++) {
           log(`upstream turn=${turn} input_len=${inputItemCount(body)} input_tail=${inputTailSummary(body)}`);
-          const source = streamCodexOnce(body, model, apiKey, originator);
+          const source = turn === 0
+            ? prepend(firstTurn, firstTurnIterator)
+            : streamCodexOnce(body, model, apiKey, originator);
 
           for await (const ev of source) {
             // Ignore pi-ai toolcall_* deltas here: forwarding them mid-stream can make Cursor abort SSE.
@@ -164,8 +195,7 @@ export function runWithToolLoop(opts: {
             }
 
             if (ev.type === "error") {
-              log(`upstream_error turn=${turn} message=${previewJson(ev.error.errorMessage ?? ev.error)}`);
-              controller.error(new Error(ev.error.errorMessage ?? "upstream stream error"));
+              closeStreamError(upstreamErrorMessage((ev as { error?: unknown }).error));
               return;
             }
 
@@ -267,8 +297,7 @@ export function runWithToolLoop(opts: {
         controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         controller.close();
       } catch (e) {
-        logger.error(`stream_error ${e instanceof Error ? e.stack || e.message : String(e)}`);
-        controller.error(e instanceof Error ? e : new Error(String(e)));
+        closeStreamError(e instanceof Error ? e.stack ?? e.message : String(e));
       }
     },
     cancel(reason) {

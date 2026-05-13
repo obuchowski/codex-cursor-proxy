@@ -61,12 +61,20 @@ Bun.serve({
         debug,
       });
     } catch (error) {
-      return withRequestId(Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 401 }), requestId);
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error(`[${requestId}] pi_bridge_error ${error instanceof Error ? error.stack || error.message : String(error)}`);
+      return withRequestId(
+        new Response(message, { status: 400, headers: { "Content-Type": "text/plain; charset=utf-8" } }),
+        requestId,
+      );
     }
 
-    if (out.status === 400) {
+    if (!out.ok) {
       const text = await out.text();
-      return withRequestId(new Response(text, { status: 400, headers: { "Content-Type": "application/json" } }), requestId);
+      return withRequestId(
+        new Response(text, { status: out.status, headers: { "Content-Type": out.headers.get("Content-Type") ?? "text/plain; charset=utf-8" } }),
+        requestId,
+      );
     }
 
     return withRequestId(out, requestId);

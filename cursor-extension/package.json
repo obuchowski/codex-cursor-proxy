@@ -1,0 +1,67 @@
+{
+  "name": "codex-cursor-proxy-extension",
+  "displayName": "Codex Proxy",
+  "description": "Toggle Codex Proxy for the current Cursor project.",
+  "version": "0.1.0",
+  "publisher": "obuchowski",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/obuchowski/codex-cursor-proxy.git"
+  },
+  "private": true,
+  "engines": {
+    "vscode": "^1.87.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "codexCursorProxy.toggle",
+        "title": "Toggle Codex Proxy",
+        "category": "Codex Proxy",
+        "icon": "$(plug)"
+      },
+      {
+        "command": "codexCursorProxy.start",
+        "title": "Start Codex Proxy",
+        "category": "Codex Proxy",
+        "icon": "$(plug)"
+      },
+      {
+        "command": "codexCursorProxy.stop",
+        "title": "Stop Codex Proxy",
+        "category": "Codex Proxy",
+        "icon": "$(debug-stop)"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "codexCursorProxy.toggle",
+          "group": "navigation@9"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Codex Proxy",
+      "properties": {
+        "codexCursorProxy.commandPath": {
+          "type": "string",
+          "default": "codex-cursor-proxy",
+          "description": "Command used to launch Codex Proxy."
+        },
+        "codexCursorProxy.shutdownTimeoutMs": {
+          "type": "number",
+          "default": 2000,
+          "minimum": 250,
+          "description": "Grace period in milliseconds before sending SIGKILL when stopping the proxy."
+        }
+      }
+    }
+  }
+}

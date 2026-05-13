@@ -1,0 +1,36 @@
+{
+  "name": "codex-cursor-proxy",
+  "version": "1.0.0",
+  "description": "OpenAI compatible inference endpoint for Cursor BYOK usage",
+  "author": "Evgeni Obuchowski",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "codex-cursor-proxy": "src/pi/index.ts",
+    "codex-cursor-proxy-minimal": "src/minimal/index.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/obuchowski/codex-cursor-proxy"
+  },
+  "scripts": {
+    "dev": "bun run --watch src/pi/index.ts --debug",
+    "dev:minimal": "bun run --watch src/minimal/index.ts --debug",
+    "start": "bun run src/pi/index.ts",
+    "start:minimal": "bun run src/minimal/index.ts"
+  },
+  "dependencies": {
+    "@earendil-works/pi-ai": "^0.74.0",
+    "@earendil-works/pi-coding-agent": "^0.74.0",
+    "dotenv": "^17.4.2"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  }
+}

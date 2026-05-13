@@ -195,7 +195,7 @@ export function runWithToolLoop(opts: {
                     output = `error: unknown pi tool ${tc.name}`;
                   } else {
                     try {
-                      output = await executePiTool(entry, callId, tc.arguments, ac.signal, PI_TOOL_TIMEOUT_MS);
+                      output = await executePiTool(entry, callId, tc.arguments, projectCwd, ac.signal, PI_TOOL_TIMEOUT_MS);
                       log(`success ${tc.name} id=${itemId} call_id=${callId} output=${previewJson(output, 2000)}`);
                     } catch (e) {
                       output = `error: ${e instanceof Error ? e.message : String(e)}`;

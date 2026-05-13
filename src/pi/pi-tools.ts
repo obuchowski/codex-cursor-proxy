@@ -1,5 +1,6 @@
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { createBashTool, createEditTool, createReadTool, createWriteTool } from "@earendil-works/pi-coding-agent";
+import { assertToolPathsInsideProject } from "./scoped-path";
 
 export type PiToolEntry = {
   name: string;
@@ -54,10 +55,12 @@ export async function executePiTool(
   entry: PiToolEntry,
   callId: string,
   rawArgs: unknown,
+  projectCwd: string,
   signal: AbortSignal,
   timeoutMs: number,
 ): Promise<string> {
   const params = entry.agent.prepareArguments ? entry.agent.prepareArguments(rawArgs) : (rawArgs as never);
+  await assertToolPathsInsideProject(params, projectCwd);
   const run = entry.agent.execute(callId, params, signal);
   const result = await Promise.race([
     run,
